@@ -62,7 +62,7 @@ class HaffmanEncoderGraph {
 		if (node->parent == nullptr) return depth;
 
 		out[depth] = node->parent->left == node;
-		out.count = depth;
+		out.count = depth + 1;
 		return encode_internal(out, node->parent, depth + 1);
 	}
 
@@ -80,6 +80,10 @@ public:
 			);
 			char_nodes[i] = nodes[i];
 		}
+
+		nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [](Node* a){
+			return a->content.freq < std::numeric_limits<typeof(a->content.freq)>::epsilon();
+		}), nodes.end());
 
 		std::sort(
 			nodes.begin(),
@@ -113,15 +117,10 @@ std::pair<size_t, bool> read_char_counts(std::ifstream& in_stream, std::array<si
 	while (true) {
 		in_stream.read(reinterpret_cast<char *>(buffer), count);
 
-		if (!in_stream) {
-			if (in_stream.eof()) {
-				break;
-			} else if (in_stream.bad()) {
-				return std::make_pair(file_size, false);
-			} else {
-				count = in_stream.gcount();
-				continue;
-			}
+		if (in_stream.bad()) {
+			return std::make_pair(file_size, false);
+		} else if (in_stream.fail()) {
+			count = in_stream.gcount();
 		}
 
 		file_size += count;
@@ -129,6 +128,8 @@ std::pair<size_t, bool> read_char_counts(std::ifstream& in_stream, std::array<si
 		for (int i = 0; i < count; ++i) {
 			char_counts[buffer[i]]++;
 		}
+
+		if (in_stream.eof()) break;
 	}
 
 	return std::make_pair(file_size, true);
@@ -154,11 +155,14 @@ int main(int argc, char* argv[]) {
 	}
 
 	size_t file_size = result.first;
+	std::cout << "File size: " << file_size << " bytes" << std::endl;
 	HaffmanEncoderGraph encoder(char_counts, file_size);
 
 	for (auto it = char_counts.begin(); it < char_counts.end(); it++) {
+		if (*it == 0) continue;
 		uint8_t c = it - char_counts.begin();
-		std::cout << "char_count[" << static_cast<int>(c) << "]\t= " << *it << encoder.encode(c).to_ullong() << std::endl;
+		auto bits = encoder.encode(c);
+		std::cout << "char_count[" << static_cast<int>(c) << "]\t: symb_count=" << *it << ", bit_count=" << bits.count << ", bits=" << bits << std::endl;
 	}
 	std::cout << std::endl;
 
