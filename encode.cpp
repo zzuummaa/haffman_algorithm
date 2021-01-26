@@ -4,6 +4,7 @@
 #include <bitset>
 #include <vector>
 #include <algorithm>
+#include <chrono>
 
 struct NodeContent {
 	double freq;
@@ -135,17 +136,19 @@ std::pair<size_t, bool> read_char_counts(std::ifstream& in_stream, std::array<si
 	return std::make_pair(file_size, true);
 }
 
-int encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out_stream) {
+std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out_stream) {
 	Node* encoder_node = nullptr;
 	bit_set_counted<2048> encoded_bits;
+	size_t encoded_file_size = 0;
 
 	uint8_t input_buffer[256];
-	size_t input_count = sizeof input_buffer;
+	size_t input_count;
 
 	while (true) {
+		input_count = sizeof input_buffer;
 		in_stream.read(reinterpret_cast<char*>(&input_buffer), sizeof input_buffer);
 		if (in_stream.bad()) {
-			return -1;
+			return std::make_pair(0, -1);
 		} else if (in_stream.fail()) {
 			input_count = in_stream.gcount();
 		}
@@ -161,9 +164,11 @@ int encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out
 
 			if (encoded_bits.is_full()) {
 				out_stream.write(reinterpret_cast<char*>(&encoded_bits), sizeof encoded_bits);
+				encoded_bits.count = 0;
 				if (out_stream.bad() || out_stream.fail()) {
-					return -3;
+					return std::make_pair(0, -3);
 				}
+				encoded_file_size += sizeof encoded_bits;
 			}
 		}
 
@@ -172,10 +177,10 @@ int encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out
 
 	out_stream.write(reinterpret_cast<char*>(&encoded_bits), encoded_bits.count / 8);
 	if (out_stream.bad() || out_stream.fail()) {
-		return -3;
+		return std::make_pair(0, -3);
 	}
 
-	return 0;
+	return std::make_pair(encoded_file_size, 0);
 }
 
 int print_encoder_info(HaffmanEncoder& encoder, const std::array<size_t, 256>& char_counts) {
@@ -196,6 +201,8 @@ int print_encoder_info(HaffmanEncoder& encoder, const std::array<size_t, 256>& c
 }
 
 int main(int argc, char* argv[]) {
+	auto start_time = std::chrono::high_resolution_clock::now();
+
 	if (argc != 3) {
 		std::cout << "Invalid input args";
 		return -1;
@@ -208,14 +215,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	std::array<size_t, 256> char_counts{};
-	auto result = read_char_counts(in_stream, char_counts);
-	if (!result.second) {
+	auto read_result = read_char_counts(in_stream, char_counts);
+	if (!read_result.second) {
 		std::cout << "Failed while read from " << argv[1];
 		return -1;
 	}
 
-	size_t file_size = result.first;
-	std::cout << "File size: " << file_size << " bytes" << std::endl;
+	size_t file_size = read_result.first;
 	HaffmanEncoder encoder(char_counts, file_size);
 
 	in_stream.clear();
@@ -231,7 +237,9 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 
-	int status = encode(encoder, in_stream, out_stream);
+	auto encode_result = encode(encoder, in_stream, out_stream);
+	int status = encode_result.second;
+	size_t out_file_size = encode_result.first;
 
 	in_stream.close();
 	out_stream.close();
@@ -243,5 +251,15 @@ int main(int argc, char* argv[]) {
 	} else if (status == -3) {
 		std::cout << "Fatal error while writing " << argv[2] << std::endl;
 	}
+
+	auto end_time = std::chrono::high_resolution_clock::now();
+	auto micros = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+
+	print_encoder_info(encoder, char_counts);
+
+	std::cout << "Compression time: " << static_cast<float>(micros) / 1000 << " ms" << std::endl;
+	std::cout << "Input file size: " << static_cast<float>(file_size) / 1024 << " KBytes" << std::endl;
+	std::cout << "Output file size: " << static_cast<float>(out_file_size) / 1024 << " KBytes" << std::endl;
+
 	return status;
 }
