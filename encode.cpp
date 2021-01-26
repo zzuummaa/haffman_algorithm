@@ -66,21 +66,20 @@ class HaffmanEncoder {
 public:
 	explicit HaffmanEncoder(std::array<size_t, 256>& char_counts, size_t file_size) : buffer(), char_nodes(256), top_node(nullptr) {
 		buffer.reserve(511);
-		std::vector<Node*> nodes(256, nullptr);
+		std::vector<Node*> nodes;
+		nodes.reserve(256);
 
 		for (int i = 0; i < char_counts.size(); ++i) {
-			nodes[i] = create_leaf_node(
+			if (char_counts[i] == 0) continue;
+			auto* node = create_leaf_node(
 				NodeContent {
-					.freq = static_cast<double>(char_counts[i]) / file_size,
-					.val = static_cast<uint8_t>(i)
+						.freq = static_cast<double>(char_counts[i]) / file_size,
+						.val = static_cast<uint8_t>(i)
 				}
 			);
-			char_nodes[i] = nodes[i];
+			nodes.push_back(node);
+			char_nodes[i] = node;
 		}
-
-		nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [](Node* a){
-			return a->content.freq < std::numeric_limits<typeof(a->content.freq)>::epsilon();
-		}), nodes.end());
 
 		std::sort(
 			nodes.begin(),
