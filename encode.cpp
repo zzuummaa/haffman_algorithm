@@ -23,13 +23,17 @@ template<size_t Nb>
 class bit_set_counted : public std::bitset<Nb> {
 public:
 	size_t count = 0;
+
+	bool is_full() {
+		return count == this->size();
+	}
 };
 
 bool is_node_freq_ge(Node* a, Node* b){
 	return a->content.freq > b->content.freq;
 }
 
-class HaffmanEncoderGraph {
+class HaffmanEncoder {
 	std::vector<Node> buffer;
 	std::vector<Node*> char_nodes;
 	Node* top_node;
@@ -58,16 +62,8 @@ class HaffmanEncoderGraph {
 		return node;
 	}
 
-	int encode_internal(bit_set_counted<256>& out, Node* node, int depth) {
-		if (node->parent == nullptr) return depth;
-
-		out[depth] = node->parent->left == node;
-		out.count = depth + 1;
-		return encode_internal(out, node->parent, depth + 1);
-	}
-
 public:
-	explicit HaffmanEncoderGraph(std::array<size_t, 256>& char_counts, size_t file_size) : buffer(), char_nodes(256), top_node(nullptr) {
+	explicit HaffmanEncoder(std::array<size_t, 256>& char_counts, size_t file_size) : buffer(), char_nodes(256), top_node(nullptr) {
 		buffer.reserve(511);
 		std::vector<Node*> nodes(256, nullptr);
 
@@ -99,14 +95,18 @@ public:
 		}
 	}
 
-	Node* top() {
-		return top_node;
+	template<size_t Nb>
+	Node* encode(Node* node, bit_set_counted<Nb>& out) {
+		while (node->parent != nullptr && out.count < Nb) {
+			out[out.count] = node->parent->left == node;
+			out.count++;
+			node = node->parent;
+		}
+		return node->parent;
 	}
 
-	bit_set_counted<256> encode(uint8_t in) {
-		bit_set_counted<256> out{};
-		encode_internal(out, char_nodes[in], 0);
-		return out;
+	Node* node_by_char(uint8_t c) {
+		return char_nodes[c];
 	}
 };
 
@@ -135,13 +135,73 @@ std::pair<size_t, bool> read_char_counts(std::ifstream& in_stream, std::array<si
 	return std::make_pair(file_size, true);
 }
 
+int encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out_stream) {
+	Node* encoder_node = nullptr;
+	bit_set_counted<2048> encoded_bits;
+
+	uint8_t input_buffer[256];
+	size_t input_count = sizeof input_buffer;
+
+	while (true) {
+		in_stream.read(reinterpret_cast<char*>(&input_buffer), sizeof input_buffer);
+		if (in_stream.bad()) {
+			return -1;
+		} else if (in_stream.fail()) {
+			input_count = in_stream.gcount();
+		}
+
+
+		while (input_count > 0) {
+			if (encoder_node == nullptr) {
+				input_count--;
+				encoder_node = encoder.encode(encoder.node_by_char(input_buffer[input_count]), encoded_bits);
+			} else {
+				encoder_node = encoder.encode(encoder_node, encoded_bits);
+			}
+
+			if (encoded_bits.is_full()) {
+				out_stream.write(reinterpret_cast<char*>(&encoded_bits), sizeof encoded_bits);
+				if (out_stream.bad() || out_stream.fail()) {
+					return -3;
+				}
+			}
+		}
+
+		if (in_stream.eof()) break;
+	}
+
+	out_stream.write(reinterpret_cast<char*>(&encoded_bits), encoded_bits.count / 8);
+	if (out_stream.bad() || out_stream.fail()) {
+		return -3;
+	}
+
+	return 0;
+}
+
+int print_encoder_info(HaffmanEncoder& encoder, const std::array<size_t, 256>& char_counts) {
+	for (auto it = char_counts.begin(); it < char_counts.end(); it++) {
+		if (*it == 0) continue;
+		uint8_t c = it - char_counts.begin();
+		bit_set_counted<256> encoded_char;
+		if (encoder.encode(encoder.node_by_char(c), encoded_char) != nullptr) {
+			std::cout << "Encode error" << std::endl;
+			return -1;
+		}
+
+		std::cout << "char_count[" << static_cast<int>(c) << "]\t\tsymb_count=" << *it
+				  << ",\tbits=" << encoded_char.to_string().substr(encoded_char.size() - encoded_char.count) << std::endl;
+	}
+	std::cout << std::endl;
+	return 0;
+}
+
 int main(int argc, char* argv[]) {
 	if (argc != 3) {
 		std::cout << "Invalid input args";
 		return -1;
 	}
 
-	std::ifstream in_stream(argv[1], std::ios::binary);
+	std::ifstream in_stream(argv[1], std::ios::binary | std::ios::in);
 	if (!in_stream.is_open()) {
 		std::cout << "Failed to open " << argv[1];
 		return -1;
@@ -156,15 +216,32 @@ int main(int argc, char* argv[]) {
 
 	size_t file_size = result.first;
 	std::cout << "File size: " << file_size << " bytes" << std::endl;
-	HaffmanEncoderGraph encoder(char_counts, file_size);
+	HaffmanEncoder encoder(char_counts, file_size);
 
-	for (auto it = char_counts.begin(); it < char_counts.end(); it++) {
-		if (*it == 0) continue;
-		uint8_t c = it - char_counts.begin();
-		auto bits = encoder.encode(c);
-		std::cout << "char_count[" << static_cast<int>(c) << "]\t: symb_count=" << *it << ", bit_count=" << bits.count << ", bits=" << bits << std::endl;
+	in_stream.clear();
+	in_stream.seekg(0);
+	if (in_stream.fail()) {
+		std::cout << "Fail to seek file to start" << std::endl;
+		return -1;
 	}
-	std::cout << std::endl;
 
-	return 0;
+	std::ofstream out_stream(argv[2], std::ios::binary | std::ios::out);
+	if (!in_stream.is_open()) {
+		std::cout << "Failed to open " << argv[2];
+		return -1;
+	}
+
+	int status = encode(encoder, in_stream, out_stream);
+
+	in_stream.close();
+	out_stream.close();
+
+	if (status == -1) {
+		std::cout << "Fatal error while reading " << argv[1] << std::endl;
+	} else if (status == -2) {
+		std::cout << "Fatal error encoded sequence not fit to output buffer" << std::endl;
+	} else if (status == -3) {
+		std::cout << "Fatal error while writing " << argv[2] << std::endl;
+	}
+	return status;
 }
