@@ -24,20 +24,17 @@ std::pair<size_t, int> decode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 		char* input_chars = reinterpret_cast<char*>(input_buffer);
 		input_chars[0] = input_chars[input_buffer->size() / 8 - 2];
 		input_chars[1] = input_chars[input_buffer->size() / 8 - 1];
-		input_chars += input_buffer_offset;
 
-		in_stream.read(input_chars, input_buffer->size() / 8 - input_buffer_offset);
+		in_stream.read(input_chars + input_buffer_offset, input_buffer->size() / 8 - input_buffer_offset);
 		if (in_stream.bad()) {
 			return std::make_pair(0, -2);
 		} else if (in_stream.fail()) {
-			if (in_stream.gcount() < 2) {
-				return std::make_pair(0, -1);
-			}
-			uint8_t padding_bits_count = input_chars[in_stream.gcount() - 1];
+			size_t read_count = 2 + in_stream.gcount();
+			uint8_t padding_bits_count = input_chars[read_count - 1];
 			if (padding_bits_count > 8) {
 				return std::make_pair(0, -1);
 			}
-			encoded_bits.count = (in_stream.gcount() - 1) * 8 - padding_bits_count;
+			encoded_bits.count = (read_count - 1) * 8 - padding_bits_count;
 		} else {
 			input_buffer_offset = 2;
 		}
