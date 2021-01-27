@@ -80,23 +80,6 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 	return std::make_pair(encoded_file_size, 0);
 }
 
-int print_encoder_info(HaffmanEncoder& encoder, const std::array<size_t, 256>& char_counts) {
-	for (auto it = char_counts.begin(); it < char_counts.end(); it++) {
-		if (*it == 0) continue;
-		uint8_t c = it - char_counts.begin();
-		bit_set_counted<256> encoded_char;
-		if (encoder.encode(encoder.node_by_char(c), encoded_char) != nullptr) {
-			std::cout << "Encode error" << std::endl;
-			return -1;
-		}
-
-		std::cout << "char_count[" << static_cast<int>(c) << "]\t\tsymb_count=" << *it
-				  << ",\tbits=" << encoded_char.to_string().substr(encoded_char.size() - encoded_char.count) << std::endl;
-	}
-	std::cout << std::endl;
-	return 0;
-}
-
 int main(int argc, char* argv[]) {
 	auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -152,7 +135,7 @@ int main(int argc, char* argv[]) {
 	auto end_time = std::chrono::high_resolution_clock::now();
 	auto micros = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
-	print_encoder_info(encoder, char_counts);
+	encoder.print_encoding_info(std::cout);
 
 	std::cout << "Compression time: " << static_cast<float>(micros) / 1000 << " ms" << std::endl;
 	std::cout << "Input file size: " << static_cast<float>(file_size) / 1024 << " KBytes" << std::endl;

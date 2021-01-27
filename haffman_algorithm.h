@@ -65,6 +65,9 @@ public:
 	Node* node_by_char(uint8_t c);
 
 	friend std::ostream& operator<<(std::ostream& os, const HaffmanEncoder& encoder);
+	friend std::istream& operator>>(std::istream& is, HaffmanEncoder& encoder);
+
+	int print_encoding_info(std::ostream& os);
 };
 
 ByteFrequencies create_byte_frequencies(std::array<size_t, 256>& char_counts, size_t file_size);
