@@ -1,114 +1,7 @@
-#include <fstream>
 #include <iostream>
-#include <array>
-#include <bitset>
-#include <vector>
-#include <algorithm>
+#include <fstream>
 #include <chrono>
-
-struct NodeContent {
-	double freq;
-	uint8_t val;
-};
-
-struct Node {
-	Node* parent;
-	Node* left;
-	Node* right;
-	NodeContent content;
-
-	Node() = default;
-};
-
-template<size_t Nb>
-class bit_set_counted : public std::bitset<Nb> {
-public:
-	size_t count = 0;
-
-	bool is_full() {
-		return count == this->size();
-	}
-};
-
-bool is_node_freq_ge(Node* a, Node* b){
-	return a->content.freq > b->content.freq;
-}
-
-class HaffmanEncoder {
-	std::vector<Node> buffer;
-	std::vector<Node*> char_nodes;
-	Node* top_node;
-
-	Node* create_leaf_node(const NodeContent& content) {
-		if (buffer.capacity() == buffer.size()) return nullptr;
-
-		buffer.emplace_back();
-		Node* node = &buffer.back();
-		node->content = content;
-
-		return node;
-	}
-
-	Node* create_parent_node(Node* left_node,  Node* right_node) {
-		if (buffer.size() >= buffer.capacity()) return nullptr;
-
-		buffer.emplace_back();
-		Node* node = &buffer.back();
-		node->content.freq = left_node->content.freq + right_node->content.freq;
-		node->left = left_node;
-		node->right = right_node;
-		left_node->parent = node;
-		right_node->parent = node;
-
-		return node;
-	}
-
-public:
-	explicit HaffmanEncoder(std::array<size_t, 256>& char_counts, size_t file_size) : buffer(), char_nodes(256), top_node(nullptr) {
-		buffer.reserve(511);
-		std::vector<Node*> nodes;
-		nodes.reserve(256);
-
-		for (int i = 0; i < char_counts.size(); ++i) {
-			if (char_counts[i] == 0) continue;
-			auto* node = create_leaf_node(
-				NodeContent {
-						.freq = static_cast<double>(char_counts[i]) / file_size,
-						.val = static_cast<uint8_t>(i)
-				}
-			);
-			nodes.push_back(node);
-			char_nodes[i] = node;
-		}
-
-		std::sort(
-			nodes.begin(),
-			nodes.end(),
-			is_node_freq_ge
-		);
-
-		while (nodes.size() > 1) {
-			top_node = create_parent_node(nodes[nodes.size() - 2], nodes[nodes.size() - 1]);
-			nodes.resize(nodes.size() - 2);
-			auto it = std::lower_bound(nodes.begin(), nodes.end(), top_node, is_node_freq_ge);
-			nodes.insert(it, top_node);
-		}
-	}
-
-	template<size_t Nb>
-	Node* encode(Node* node, bit_set_counted<Nb>& out) {
-		while (node->parent != nullptr && out.count < Nb) {
-			out[out.count] = node->parent->left == node;
-			out.count++;
-			node = node->parent;
-		}
-		return node->parent;
-	}
-
-	Node* node_by_char(uint8_t c) {
-		return char_nodes[c];
-	}
-};
+#include "haffman_algorithm.h"
 
 std::pair<size_t, bool> read_char_counts(std::ifstream& in_stream, std::array<size_t, 256>& char_counts) {
 	size_t file_size = 0;
@@ -142,6 +35,11 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 
 	uint8_t input_buffer[256];
 	size_t input_count;
+
+	out_stream << encoder;
+	if (out_stream.bad() || out_stream.fail()) {
+		return std::make_pair(0, -3);
+	}
 
 	while (true) {
 		input_count = sizeof input_buffer;
@@ -221,7 +119,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	size_t file_size = read_result.first;
-	HaffmanEncoder encoder(char_counts, file_size);
+	HaffmanEncoder encoder(create_byte_frequencies(char_counts, file_size));
 
 	in_stream.clear();
 	in_stream.seekg(0);
