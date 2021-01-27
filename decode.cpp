@@ -17,24 +17,29 @@ std::pair<size_t, int> decode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 	uint8_t output_buffer[256];
 	size_t output_count = 0;
 
+	size_t input_buffer_offset = 0;
 	encoded_bits.count = encoded_bits.size() - 16;
 	while (true) {
 		encoded_bits.pos = 0;
-		in_stream.read(reinterpret_cast<char *>(input_buffer), input_buffer->size() / 8);
+		char* input_chars = reinterpret_cast<char*>(input_buffer);
+		input_chars[0] = input_chars[input_buffer->size() / 8 - 2];
+		input_chars[1] = input_chars[input_buffer->size() / 8 - 1];
+		input_chars += input_buffer_offset;
+
+		in_stream.read(input_chars, input_buffer->size() / 8 - input_buffer_offset);
 		if (in_stream.bad()) {
 			return std::make_pair(0, -2);
 		} else if (in_stream.fail()) {
 			if (in_stream.gcount() < 2) {
 				return std::make_pair(0, -1);
 			}
-			uint8_t padding_bits_count = reinterpret_cast<uint8_t*>(input_buffer)[in_stream.gcount() - 1];
+			uint8_t padding_bits_count = input_chars[in_stream.gcount() - 1];
 			if (padding_bits_count > 8) {
 				return std::make_pair(0, -1);
 			}
 			encoded_bits.count = (in_stream.gcount() - 1) * 8 - padding_bits_count;
 		} else {
-			in_stream.putback(reinterpret_cast<char *>(input_buffer)[254]);
-			in_stream.putback(reinterpret_cast<char *>(input_buffer)[255]);
+			input_buffer_offset = 2;
 		}
 
 		while (encoded_bits.pos < encoded_bits.count) {
@@ -52,7 +57,7 @@ std::pair<size_t, int> decode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 				out_stream.write(reinterpret_cast<char*>(&output_buffer), sizeof output_buffer);
 				output_count = 0;
 				encoded_file_size += sizeof output_buffer;
-				if (out_stream.bad() || out_stream.fail()) {
+				if (out_stream.fail()) {
 					return std::make_pair(0, -3);
 				}
 			}
