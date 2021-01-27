@@ -37,7 +37,7 @@ public:
 
 template<std::size_t Nb>
 void copy_bits(std::bitset<Nb> &b, size_t begin_i, size_t end_i, size_t finish_i) {
-	for(size_t i = 0; i < end_i - begin_i; ++i) {
+	for(size_t i = 0; i < (end_i - begin_i); ++i) {
 		b[i + finish_i] = b[i + begin_i];
 	}
 }
@@ -62,21 +62,24 @@ public:
 	template<size_t Nb>
 	Node* encode(Node* node, bit_set_counted<Nb>& out) {
 		if (node == nullptr) return nullptr;
-		while (node->parent != nullptr && out.count < Nb) {
+		while (out.count < Nb) {
+			if (node->parent == nullptr) return nullptr;
 			out[out.count] = node->parent->left == node;
 			out.count++;
 			node = node->parent;
 		}
-		return node->parent;
+		return node;
 	}
 
 	template<size_t Nb>
 	Node* decode(Node* node, bit_set_counted<Nb>& in) {
 		if (node == nullptr) return nullptr;
-		while (node->right != nullptr && in.pos < in.count) {
+		while (in.pos < in.count) {
 			if (in.test(in.pos)) {
+				if (node->left == nullptr) return node;
 				node = node->left;
 			} else {
+				if (node->right == nullptr) return node;
 				node = node->right;
 			}
 			in.pos++;

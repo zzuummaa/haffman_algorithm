@@ -75,7 +75,7 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 			if (encoded_bits.is_full()) {
 				size_t write_size = cur_byte_pos / 8;
 				out_stream.write(reinterpret_cast<const char *>(out_buffer), write_size);
-				if (out_stream.bad() || out_stream.fail()) {
+				if (out_stream.fail()) {
 					return std::make_pair(0, -3);
 				}
 				copy_bits(encoded_bits, write_size * 8, encoded_bits.count, 0);
