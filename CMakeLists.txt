@@ -8,5 +8,3 @@ target_include_directories(encode PRIVATE ${PROJECT_SOURCE_DIR})
 
 add_executable(decode decode.cpp haffman_algorithm.cpp)
 target_include_directories(encode PRIVATE ${PROJECT_SOURCE_DIR})
-
-add_executable(test test.cpp)
