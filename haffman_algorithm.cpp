@@ -67,6 +67,15 @@ Node *HaffmanEncoder::node_by_char(uint8_t c) {
 	return char_nodes[c];
 }
 
+bool HaffmanEncoder::is_leaf(Node *node) {
+	if (node == nullptr) return false;
+	return node->right == nullptr;
+}
+
+Node *HaffmanEncoder::top() {
+	return top_node;
+}
+
 std::ostream &operator<<(std::ostream &os, const HaffmanEncoder &encoder) {
 	uint16_t count = encoder.char_nodes.size() - std::count(encoder.char_nodes.begin(), encoder.char_nodes.end(), nullptr);
 	os.write(reinterpret_cast<char*>(&count), sizeof(count));

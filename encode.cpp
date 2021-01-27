@@ -28,9 +28,27 @@ std::pair<size_t, bool> read_char_counts(std::ifstream& in_stream, std::array<si
 	return std::make_pair(file_size, true);
 }
 
+template<std::size_t Nb>
+void reverse_bits(std::bitset<Nb> &b, size_t begin_i, size_t end_i) {
+	for(size_t i = 0; i < (end_i - begin_i) / 2; ++i) {
+		bool t = b[i + begin_i];
+		b[i + begin_i] = b[end_i - 1 - i];
+		b[end_i - 1 - i] = t;
+	}
+}
+
+template<std::size_t Nb>
+void copy_bits(std::bitset<Nb> &b, size_t begin_i, size_t end_i, size_t finish_i) {
+	for(size_t i = 0; i < end_i - begin_i; ++i) {
+		b[i + finish_i] = b[i + begin_i];
+	}
+}
+
 std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out_stream) {
 	Node* encoder_node = nullptr;
+	size_t cur_byte_pos = 0;
 	bit_set_counted<2048> encoded_bits;
+	auto* out_buffer = static_cast<std::bitset<2048>*>(&encoded_bits);
 	size_t encoded_file_size = 0;
 
 	uint8_t input_buffer[256];
@@ -50,9 +68,10 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 			input_count = in_stream.gcount();
 		}
 
-
 		while (input_count > 0) {
 			if (encoder_node == nullptr) {
+				reverse_bits(encoded_bits, cur_byte_pos, encoded_bits.count);
+				cur_byte_pos = encoded_bits.count;
 				input_count--;
 				encoder_node = encoder.encode(encoder.node_by_char(input_buffer[input_count]), encoded_bits);
 			} else {
@@ -60,19 +79,22 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 			}
 
 			if (encoded_bits.is_full()) {
-				out_stream.write(reinterpret_cast<char*>(&encoded_bits), sizeof encoded_bits);
-				encoded_bits.count = 0;
+				size_t write_size = cur_byte_pos / 8;
+				out_stream.write(reinterpret_cast<const char *>(out_buffer), write_size);
 				if (out_stream.bad() || out_stream.fail()) {
 					return std::make_pair(0, -3);
 				}
-				encoded_file_size += sizeof encoded_bits;
+				copy_bits(encoded_bits, write_size * 8, encoded_bits.count, 0);
+				cur_byte_pos = cur_byte_pos - write_size * 8;
+				encoded_bits.count = encoded_bits.count - write_size * 8;
+				encoded_file_size += write_size;
 			}
 		}
 
 		if (in_stream.eof()) break;
 	}
 
-	out_stream.write(reinterpret_cast<char*>(&encoded_bits), encoded_bits.count / 8);
+	out_stream.write(reinterpret_cast<const char *>(out_buffer), encoded_bits.count / 8);
 	if (out_stream.bad() || out_stream.fail()) {
 		return std::make_pair(0, -3);
 	}
@@ -124,20 +146,23 @@ int main(int argc, char* argv[]) {
 	in_stream.close();
 	out_stream.close();
 
-	if (status == -1) {
-		std::cout << "Fatal error while reading " << argv[1] << std::endl;
-	} else if (status == -2) {
-		std::cout << "Fatal error encoded sequence not fit to output buffer" << std::endl;
-	} else if (status == -3) {
-		std::cout << "Fatal error while writing " << argv[2] << std::endl;
-	}
-
 	auto end_time = std::chrono::high_resolution_clock::now();
 	auto micros = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
 
+	if (status == -1) {
+		std::cout << "Fatal error while reading " << argv[1] << std::endl;
+		return -1;
+	} else if (status == -2) {
+		std::cout << "Fatal error encoded sequence not fit to output buffer" << std::endl;
+		return -2;
+	} else if (status == -3) {
+		std::cout << "Fatal error while writing " << argv[2] << std::endl;
+		return -3;
+	}
+
 	encoder.print_encoding_info(std::cout);
 
-	std::cout << "Compression time: " << static_cast<float>(micros) / 1000 << " ms" << std::endl;
+	std::cout << "Encoding time: " << static_cast<float>(micros) / 1000 << " ms" << std::endl;
 	std::cout << "Input file size: " << static_cast<float>(file_size) / 1024 << " KBytes" << std::endl;
 	std::cout << "Output file size: " << static_cast<float>(out_file_size) / 1024 << " KBytes" << std::endl;
 

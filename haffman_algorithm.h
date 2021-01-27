@@ -27,6 +27,7 @@ struct Node {
 template<size_t Nb>
 class bit_set_counted : public std::bitset<Nb> {
 public:
+	size_t pos = 0;
 	size_t count = 0;
 
 	bool is_full() {
@@ -62,7 +63,23 @@ public:
 		return node->parent;
 	}
 
+	template<size_t Nb>
+	Node* decode(Node* node, bit_set_counted<Nb>& in) {
+		if (node == nullptr) return nullptr;
+		while (node->right != nullptr && in.pos < in.count) {
+			if (in.test(in.pos)) {
+				node = node->left;
+			} else {
+				node = node->right;
+			}
+			in.pos++;
+		}
+		return node;
+	}
+
 	Node* node_by_char(uint8_t c);
+	bool is_leaf(Node* node);
+	Node* top();
 
 	friend std::ostream& operator<<(std::ostream& os, const HaffmanEncoder& encoder);
 	friend std::istream& operator>>(std::istream& is, HaffmanEncoder& encoder);
