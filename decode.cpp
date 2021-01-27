@@ -12,19 +12,29 @@ std::pair<size_t, int> decode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 	Node* encoder_node = nullptr;
 	size_t encoded_file_size = 0;
 	bit_set_counted<2048> encoded_bits;
-	encoded_bits.count = encoded_bits.size();
 	auto* input_buffer = static_cast<std::bitset<2048>*>(&encoded_bits);
 
 	uint8_t output_buffer[256];
 	size_t output_count = 0;
 
+	encoded_bits.count = encoded_bits.size() - 16;
 	while (true) {
 		encoded_bits.pos = 0;
 		in_stream.read(reinterpret_cast<char *>(input_buffer), input_buffer->size() / 8);
 		if (in_stream.bad()) {
-			return std::make_pair(0, -1);
+			return std::make_pair(0, -2);
 		} else if (in_stream.fail()) {
-			encoded_bits.count = in_stream.gcount() * 8;
+			if (in_stream.gcount() < 2) {
+				return std::make_pair(0, -1);
+			}
+			uint8_t padding_bits_count = reinterpret_cast<uint8_t*>(input_buffer)[in_stream.gcount() - 1];
+			if (padding_bits_count > 8) {
+				return std::make_pair(0, -1);
+			}
+			encoded_bits.count = (in_stream.gcount() - 1) * 8 - padding_bits_count;
+		} else {
+			in_stream.putback(reinterpret_cast<char *>(input_buffer)[254]);
+			in_stream.putback(reinterpret_cast<char *>(input_buffer)[255]);
 		}
 
 		while (encoded_bits.pos < encoded_bits.count) {

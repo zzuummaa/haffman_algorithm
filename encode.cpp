@@ -37,13 +37,6 @@ void reverse_bits(std::bitset<Nb> &b, size_t begin_i, size_t end_i) {
 	}
 }
 
-template<std::size_t Nb>
-void copy_bits(std::bitset<Nb> &b, size_t begin_i, size_t end_i, size_t finish_i) {
-	for(size_t i = 0; i < end_i - begin_i; ++i) {
-		b[i + finish_i] = b[i + begin_i];
-	}
-}
-
 std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out_stream) {
 	Node* encoder_node = nullptr;
 	size_t cur_byte_pos = 0;
@@ -55,7 +48,7 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 	size_t input_count;
 
 	out_stream << encoder;
-	if (out_stream.bad() || out_stream.fail()) {
+	if (out_stream.fail()) {
 		return std::make_pair(0, -3);
 	}
 
@@ -68,12 +61,13 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 			input_count = in_stream.gcount();
 		}
 
-		while (input_count > 0) {
+		size_t input_buffer_pos = 0;
+		while (input_buffer_pos < input_count) {
 			if (encoder_node == nullptr) {
 				reverse_bits(encoded_bits, cur_byte_pos, encoded_bits.count);
 				cur_byte_pos = encoded_bits.count;
-				input_count--;
-				encoder_node = encoder.encode(encoder.node_by_char(input_buffer[input_count]), encoded_bits);
+				encoder_node = encoder.encode(encoder.node_by_char(input_buffer[input_buffer_pos]), encoded_bits);
+				input_buffer_pos++;
 			} else {
 				encoder_node = encoder.encode(encoder_node, encoded_bits);
 			}
@@ -94,8 +88,23 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 		if (in_stream.eof()) break;
 	}
 
-	out_stream.write(reinterpret_cast<const char *>(out_buffer), encoded_bits.count / 8);
-	if (out_stream.bad() || out_stream.fail()) {
+	if (encoder_node != nullptr) {
+		if (encoder.encode(encoder_node, encoded_bits) != nullptr) return std::make_pair(0, -1);
+	}
+//	std::cout << "last char: ";
+//	for (int i = cur_byte_pos; i < encoded_bits.count; ++i) {
+//		std::cout << encoded_bits.test(i);
+//	}
+//	std::cout << std::endl;
+	reverse_bits(encoded_bits, cur_byte_pos, encoded_bits.count);
+	uint8_t padding_bits_count = encoded_bits.count % 8 > 0 ? 8 - encoded_bits.count % 8 : 0;
+	out_stream.write(reinterpret_cast<const char *>(out_buffer), encoded_bits.count / 8 + (padding_bits_count > 0 ? 1 : 0));
+	if (out_stream.fail()) {
+		return std::make_pair(0, -3);
+	}
+
+	out_stream.write(reinterpret_cast<char*>(&padding_bits_count), sizeof padding_bits_count);
+	if (out_stream.fail()) {
 		return std::make_pair(0, -3);
 	}
 

@@ -35,6 +35,13 @@ public:
 	}
 };
 
+template<std::size_t Nb>
+void copy_bits(std::bitset<Nb> &b, size_t begin_i, size_t end_i, size_t finish_i) {
+	for(size_t i = 0; i < end_i - begin_i; ++i) {
+		b[i + finish_i] = b[i + begin_i];
+	}
+}
+
 bool is_node_freq_ge(Node* a, Node* b);
 
 class HaffmanEncoder {
