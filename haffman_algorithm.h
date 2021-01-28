@@ -91,8 +91,8 @@ public:
 	bool is_leaf(Node* node);
 	Node* top();
 
-	friend std::ostream& operator<<(std::ostream& os, const HaffmanEncoder& encoder);
-	friend std::istream& operator>>(std::istream& is, HaffmanEncoder& encoder);
+	friend size_t serialize(std::ostream& os, const HaffmanEncoder& encoder);
+	friend size_t deserialize(std::istream& is, HaffmanEncoder& encoder);
 
 	int print_encoding_info(std::ostream& os);
 };

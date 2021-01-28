@@ -47,7 +47,7 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 	uint8_t input_buffer[256];
 	size_t input_count;
 
-	out_stream << encoder;
+	encoded_file_size += serialize(out_stream, encoder);
 	if (out_stream.fail()) {
 		return std::make_pair(0, -3);
 	}
@@ -98,15 +98,18 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 //	std::cout << std::endl;
 	reverse_bits(encoded_bits, cur_byte_pos, encoded_bits.count);
 	uint8_t padding_bits_count = encoded_bits.count % 8 > 0 ? 8 - encoded_bits.count % 8 : 0;
-	out_stream.write(reinterpret_cast<const char *>(out_buffer), encoded_bits.count / 8 + (padding_bits_count > 0 ? 1 : 0));
+	size_t remaining_bytes_count = encoded_bits.count / 8 + (padding_bits_count > 0 ? 1 : 0);
+	out_stream.write(reinterpret_cast<const char *>(out_buffer), remaining_bytes_count);
 	if (out_stream.fail()) {
 		return std::make_pair(0, -3);
 	}
+	encoded_file_size += remaining_bytes_count;
 
 	out_stream.write(reinterpret_cast<char*>(&padding_bits_count), sizeof padding_bits_count);
 	if (out_stream.fail()) {
 		return std::make_pair(0, -3);
 	}
+	encoded_file_size += sizeof padding_bits_count;
 
 	return std::make_pair(encoded_file_size, 0);
 }

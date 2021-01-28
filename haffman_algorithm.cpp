@@ -88,21 +88,6 @@ Node *HaffmanEncoder::top() {
 	return top_node;
 }
 
-std::ostream &operator<<(std::ostream &os, const HaffmanEncoder &encoder) {
-	uint16_t count = encoder.char_nodes.size() - std::count(encoder.char_nodes.begin(), encoder.char_nodes.end(), nullptr);
-	os.write(reinterpret_cast<char*>(&count), sizeof(count));
-	for (auto it = encoder.char_nodes.begin(); it < encoder.char_nodes.end(); it++) {
-		if (*it == nullptr) continue;
-
-		uint8_t c = static_cast<uint8_t>(it - encoder.char_nodes.begin());
-		os.write(reinterpret_cast<char*>(&c), sizeof(c));
-
-		double freq = (*it)->content.freq;
-		os.write(reinterpret_cast<char*>(&freq), sizeof(freq));
-	}
-	return os;
-}
-
 std::istream &operator>>(std::istream &is, HaffmanEncoder &encoder) {
 	uint16_t count;
 	is.read(reinterpret_cast<char*>(&count), sizeof(count));
@@ -140,6 +125,60 @@ std::istream &operator>>(std::istream &is, HaffmanEncoder &encoder) {
 	encoder.build(byte_freq);
 
 	return is;
+}
+
+size_t serialize(std::ostream& os, const HaffmanEncoder& encoder) {
+	uint16_t count = encoder.char_nodes.size() - std::count(encoder.char_nodes.begin(), encoder.char_nodes.end(), nullptr);
+	os.write(reinterpret_cast<char*>(&count), sizeof(count));
+	for (auto it = encoder.char_nodes.begin(); it < encoder.char_nodes.end(); it++) {
+		if (*it == nullptr) continue;
+
+		uint8_t c = static_cast<uint8_t>(it - encoder.char_nodes.begin());
+		os.write(reinterpret_cast<char*>(&c), sizeof(c));
+
+		double freq = (*it)->content.freq;
+		os.write(reinterpret_cast<char*>(&freq), sizeof(freq));
+	}
+	return os.fail() ? 0 : sizeof(count) + count * 9;
+}
+
+size_t deserialize(std::istream& is, HaffmanEncoder& encoder) {
+	uint16_t count;
+	is.read(reinterpret_cast<char*>(&count), sizeof(count));
+	if (is.fail() || count > 256) {
+		is.setstate(is.rdstate() | std::ios::failbit);
+		return 0;
+	}
+
+	ByteFrequencies byte_freq(count);
+	double sum_freq = 0;
+	for (int i = 0; i < count; ++i) {
+		is.read(reinterpret_cast<char*>(&byte_freq[i].first), sizeof(byte_freq[i].first));
+		if (is.fail()) {
+			return 0;
+		}
+		is.read(reinterpret_cast<char*>(&byte_freq[i].second), sizeof(byte_freq[i].second));
+		if (is.fail()) {
+			return 0;
+		}
+
+		if (i > 0) {
+			if (byte_freq[i - 1].first >= byte_freq[i].first) {
+				is.setstate(is.rdstate() | std::ios::failbit);
+				return 0;
+			}
+		}
+		sum_freq += byte_freq[i].second;
+	}
+
+	if (std::abs(1.0 - sum_freq) > 0.1) {
+		is.setstate(is.rdstate() | std::ios::failbit);
+		return 0;
+	}
+
+	encoder.build(byte_freq);
+
+	return sizeof(count) + count * 9;
 }
 
 int HaffmanEncoder::print_encoding_info(std::ostream &os) {

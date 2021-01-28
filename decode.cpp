@@ -4,7 +4,7 @@
 #include "haffman_algorithm.h"
 
 std::pair<size_t, int> decode(HaffmanEncoder& encoder, std::ifstream& in_stream, std::ofstream& out_stream) {
-	in_stream >> encoder;
+	deserialize(in_stream, encoder);
 	if (in_stream.fail()) {
 		return std::make_pair(0, -1);
 	}
