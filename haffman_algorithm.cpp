@@ -165,7 +165,7 @@ bool is_node_freq_ge(Node *a, Node *b) {
 
 ByteFrequencies create_byte_frequencies(std::array<size_t, 256> &char_counts, size_t file_size) {
 	ByteFrequencies byte_freq;
-	for (int i = 0; i < char_counts.size(); ++i) {
+	for (size_t i = 0; i < char_counts.size(); ++i) {
 		if (char_counts[i] == 0) continue;
 		byte_freq.push_back(std::make_pair(i, static_cast<double>(char_counts[i]) / file_size));
 	}
