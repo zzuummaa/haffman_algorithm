@@ -16,16 +16,14 @@ Node *HaffmanEncoder::create_parent_node(Node *left_node, Node *right_node) {
 	buffer.emplace_back();
 	Node* node = &buffer.back();
 
-	if (left_node != nullptr && right_node != nullptr) {
-		node->content.freq = left_node->content.freq + right_node->content.freq;
+	if (left_node != nullptr) {
+		node->content.freq += left_node->content.freq;
 		left_node->parent = node;
+	}
+
+	if (right_node != nullptr) {
+		node->content.freq += right_node->content.freq;
 		right_node->parent = node;
-	} else if (left_node == nullptr) {
-		node->content.freq = right_node->content.freq;
-		right_node->parent = node;
-	} else {
-		node->content.freq = left_node->content.freq;
-		left_node->parent = node;
 	}
 
 	node->left = left_node;

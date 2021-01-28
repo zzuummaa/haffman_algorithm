@@ -29,12 +29,12 @@ std::pair<size_t, int> decode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 		if (in_stream.bad()) {
 			return std::make_pair(0, -2);
 		} else if (in_stream.fail()) {
-			size_t read_count = 2 + in_stream.gcount();
-			uint8_t padding_bits_count = input_chars[read_count - 1];
+			size_t input_data_count = input_buffer_offset + in_stream.gcount();
+			uint8_t padding_bits_count = input_chars[input_data_count - 1];
 			if (padding_bits_count > 8) {
 				return std::make_pair(0, -1);
 			}
-			encoded_bits.count = (read_count - 1) * 8 - padding_bits_count;
+			encoded_bits.count = (input_data_count - 1) * 8 - padding_bits_count;
 		} else {
 			input_buffer_offset = 2;
 		}
