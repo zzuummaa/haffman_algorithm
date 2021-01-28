@@ -153,7 +153,7 @@ int HaffmanEncoder::print_encoding_info(std::ostream &os) {
 		}
 
 		os << "char_count[" << static_cast<int>(c) << "]\t\tsymb_freq=" << (*it)->content.freq
-				  << ",\tbits=" << encoded_char.to_string().substr(encoded_char.size() - encoded_char.count) << std::endl;
+				  << "\tbits=" << encoded_char.to_string().substr(encoded_char.size() - encoded_char.count) << std::endl;
 	}
 	os << std::endl;
 	return 0;
