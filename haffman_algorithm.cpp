@@ -49,6 +49,10 @@ void HaffmanEncoder::build(const ByteFrequencies& byte_freq) {
 		char_nodes[it.first] = node;
 	}
 
+	if (nodes.size() == 1) {
+		top_node = nodes.front();
+	}
+
 	std::sort(
 		nodes.begin(),
 		nodes.end(),
