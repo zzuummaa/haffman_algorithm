@@ -15,11 +15,21 @@ Node *HaffmanEncoder::create_parent_node(Node *left_node, Node *right_node) {
 
 	buffer.emplace_back();
 	Node* node = &buffer.back();
-	node->content.freq = left_node->content.freq + right_node->content.freq;
+
+	if (left_node != nullptr && right_node != nullptr) {
+		node->content.freq = left_node->content.freq + right_node->content.freq;
+		left_node->parent = node;
+		right_node->parent = node;
+	} else if (left_node == nullptr) {
+		node->content.freq = right_node->content.freq;
+		right_node->parent = node;
+	} else {
+		node->content.freq = left_node->content.freq;
+		left_node->parent = node;
+	}
+
 	node->left = left_node;
 	node->right = right_node;
-	left_node->parent = node;
-	right_node->parent = node;
 
 	return node;
 }
@@ -50,7 +60,7 @@ void HaffmanEncoder::build(const ByteFrequencies& byte_freq) {
 	}
 
 	if (nodes.size() == 1) {
-		top_node = nodes.front();
+		top_node = create_parent_node(nodes.front(), nullptr);
 	}
 
 	std::sort(
