@@ -91,11 +91,7 @@ std::pair<size_t, int> encode(HaffmanEncoder& encoder, std::ifstream& in_stream,
 	if (encoder_node != nullptr) {
 		if (encoder.encode(encoder_node, encoded_bits) != nullptr) return std::make_pair(0, -1);
 	}
-//	std::cout << "last char: ";
-//	for (int i = cur_byte_pos; i < encoded_bits.count; ++i) {
-//		std::cout << encoded_bits.test(i);
-//	}
-//	std::cout << std::endl;
+
 	reverse_bits(encoded_bits, cur_byte_pos, encoded_bits.count);
 	uint8_t padding_bits_count = encoded_bits.count % 8 > 0 ? 8 - encoded_bits.count % 8 : 0;
 	size_t remaining_bytes_count = encoded_bits.count / 8 + (padding_bits_count > 0 ? 1 : 0);

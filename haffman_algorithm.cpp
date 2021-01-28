@@ -149,6 +149,7 @@ size_t deserialize(std::istream& is, HaffmanEncoder& encoder) {
 		is.setstate(is.rdstate() | std::ios::failbit);
 		return 0;
 	}
+	if (count == 0) return 0;
 
 	ByteFrequencies byte_freq(count);
 	double sum_freq = 0;
